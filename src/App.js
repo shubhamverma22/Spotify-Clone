@@ -1,43 +1,69 @@
 import React, { useEffect } from "react";
-import { getTokenFromResponse } from "./spotify";
-import "./App.css";
-import Login from "./components/Login";
-import Player from "./components/Player";
 import SpotifyWebApi from "spotify-web-api-js";
 import { useDataLayerValue } from "./DataLayer";
+import Player from "../src/components/Player";
+import { getTokenFromResponse } from "./spotify";
+import "./App.css";
+import Login from "../src/components/Login";
 
 const spotify = new SpotifyWebApi();
 
 function App() {
-	const [{ user, token }, dispatch] = useDataLayerValue();
-	//Run code based on a given condition
+	const [{ token }, dispatch] = useDataLayerValue();
+
 	useEffect(() => {
+		// Set token
 		const hash = getTokenFromResponse();
 		window.location.hash = "";
-		const _token = hash.access_token;
+		let _token = hash.access_token;
+
 		if (_token) {
+			spotify.setAccessToken(_token);
+
 			dispatch({
 				type: "SET_TOKEN",
 				token: _token,
 			});
 
-			spotify.setAccessToken(_token);
+			spotify.getPlaylist().then((response) =>
+				dispatch({
+					type: "SET_DISCOVER_WEEKLY",
+					discover_weekly: response,
+				})
+			);
+
+			spotify.getMyTopArtists().then((response) =>
+				dispatch({
+					type: "SET_TOP_ARTISTS",
+					top_artists: response,
+				})
+			);
+
+			dispatch({
+				type: "SET_SPOTIFY",
+				spotify: spotify,
+			});
+
 			spotify.getMe().then((user) => {
 				dispatch({
 					type: "SET_USER",
-					user: user,
+					user,
+				});
+			});
+
+			spotify.getUserPlaylists().then((playlists) => {
+				dispatch({
+					type: "SET_PLAYLISTS",
+					playlists,
 				});
 			});
 		}
-		console.log("I have token -->", token);
-	}, []);
-
-	console.log("User is:-", user);
-	console.log("Token is:-", token);
+	}, [token, dispatch]);
 
 	return (
 		<div className="app">
-			{token ? <Player spotify={spotify} /> : <Login />}
+			{!token && <Login />}
+			{token && <Player spotify={spotify} />}
 		</div>
 	);
 }
